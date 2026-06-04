@@ -40,7 +40,7 @@ export default function Sidebar({ userRole, userDivision, userEmail }: SidebarPr
   }, []);
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, show: userRole === 'admin' || userRole === 'leader' },
+    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, show: userRole === 'admin' },
     { name: 'Cuti Saya', href: '/my-leave', icon: User, show: true },
     { name: 'Divisi', href: '/division', icon: Users, show: userRole === 'admin' || userRole === 'leader' },
     { name: 'Semua Karyawan', href: '/all-employees', icon: UserCheck, show: userRole === 'admin' },
