@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Users, Calendar, Clock, UserCheck, RefreshCw, Eye, Download, User, Building2, CalendarDays } from 'lucide-react';
+import { Users, Calendar, Clock, UserCheck, RefreshCw, Eye, Download, User, Building2, CalendarDays, Filter, ChevronRight, ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
 import {
   BarChart,
@@ -47,7 +47,9 @@ import {
   CurrentlyOnLeave, 
   TopLeaveUser, 
   LeaveTrend,
-  CalendarLeaveEntry 
+  CalendarLeaveEntry,
+  UpcomingLeave,
+  DateRange 
 } from '@/types';
 
 const COLORS = ['#14b8a6', '#8b5cf6', '#06b6d4', '#f59e0b', '#ec4899', '#10b981'];
@@ -118,15 +120,23 @@ export default function DashboardPage() {
   const [currentlyOnLeaveList, setCurrentlyOnLeaveList] = useState<CurrentlyOnLeave[]>([]);
   const [topLeaveUsers, setTopLeaveUsers] = useState<TopLeaveUser[]>([]);
   const [leaveTrend, setLeaveTrend] = useState<LeaveTrend[]>([]);
-  const [calendarLeaveData, setCalendarLeaveData] = useState<Record<string, CalendarLeaveEntry[]>>({});
+  const [calendarLeaveData, setCalendarLeaveData] = useState<Record<string, Record<string, CalendarLeaveEntry[]>>>({});
+  const [upcomingLeave, setUpcomingLeave] = useState<UpcomingLeave[]>([]);
   const [selectedDate, setSelectedDate] = useState<number | null>(null);
   const [isCalendarPopupOpen, setIsCalendarPopupOpen] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange>('year');
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const fetchData = async () => {
+  const now = new Date();
+  const [calendarMonth, setCalendarMonth] = useState<{ year: number; month: number }>({
+    year: now.getFullYear(),
+    month: now.getMonth(),
+  });
+
+  const fetchData = async (range: DateRange = dateRange) => {
     try {
-      const response = await fetch('/api/stats');
+      const response = await fetch(`/api/stats?range=${range}`);
       const data = await response.json();
 
       if (!response.ok) {
@@ -143,6 +153,7 @@ export default function DashboardPage() {
       setTopLeaveUsers(data.topLeaveUsers || []);
       setLeaveTrend(data.leaveTrend || []);
       setCalendarLeaveData(data.calendarLeaveData || {});
+      setUpcomingLeave(data.upcomingLeave || []);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -154,11 +165,46 @@ export default function DashboardPage() {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    fetchData(dateRange);
+  }, [dateRange]);
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await fetchData();
     setIsRefreshing(false);
   };
+
+  const DATE_RANGE_OPTIONS: { value: DateRange; label: string }[] = [
+    { value: 'month', label: 'Bulan Ini' },
+    { value: '3months', label: '3 Bulan Terakhir' },
+    { value: '6months', label: '6 Bulan Terakhir' },
+    { value: 'year', label: 'Tahun Ini' },
+    { value: 'all', label: 'Semua Waktu' },
+  ];
+
+  // Calendar navigation
+  const goToPrevMonth = () => {
+    setCalendarMonth((prev) => {
+      if (prev.month === 0) return { year: prev.year - 1, month: 11 };
+      return { ...prev, month: prev.month - 1 };
+    });
+  };
+
+  const goToNextMonth = () => {
+    setCalendarMonth((prev) => {
+      if (prev.month === 11) return { year: prev.year + 1, month: 0 };
+      return { ...prev, month: prev.month + 1 };
+    });
+  };
+
+  const goToToday = () => {
+    setCalendarMonth({ year: now.getFullYear(), month: now.getMonth() });
+  };
+
+  const isCurrentMonth = calendarMonth.year === now.getFullYear() && calendarMonth.month === now.getMonth();
+  const calendarMonthKey = `${calendarMonth.year}-${String(calendarMonth.month + 1).padStart(2, '0')}`;
+  const calendarMonthData = calendarLeaveData[calendarMonthKey] || {};
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleBarClick = (data: any) => {
@@ -212,31 +258,45 @@ export default function DashboardPage() {
             />
           </div>
 
-          {/* Quick Actions */}
+          {/* Quick Actions + Filter */}
           <div className="bg-card rounded-xl border border-primary/10 p-4 mb-6 sm:mb-8 shadow-sm">
             <div className="flex flex-wrap items-center gap-3">
-              <button
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-teal-500 to-purple-500 text-white text-sm font-medium hover:from-teal-400 hover:to-purple-400 transition-all duration-200 shadow-md shadow-teal-500/25 disabled:opacity-50"
-              >
-                <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                Refresh Data
-              </button>
-              <Link
-                href="/all-employees"
-                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-primary/20 text-foreground text-sm font-medium hover:bg-primary/5 transition-all duration-200"
-              >
-                <Eye className="w-4 h-4" />
-                Lihat Semua Karyawan
-              </Link>
-              <button
-                disabled
-                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-muted text-muted-foreground text-sm font-medium cursor-not-allowed opacity-50"
-              >
-                <Download className="w-4 h-4" />
-                Export Laporan
-              </button>
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-muted-foreground">Filter:</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {DATE_RANGE_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => setDateRange(option.value)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
+                      dateRange === option.value
+                        ? 'bg-gradient-to-r from-teal-500 to-purple-500 text-white shadow-md shadow-teal-500/25'
+                        : 'border border-primary/20 text-foreground hover:bg-primary/5'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              <div className="ml-auto flex items-center gap-2">
+                <button
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-primary/20 text-foreground text-xs font-medium hover:bg-primary/5 transition-all duration-200 disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  Refresh
+                </button>
+                <Link
+                  href="/all-employees"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-primary/20 text-foreground text-xs font-medium hover:bg-primary/5 transition-all duration-200"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  Semua Karyawan
+                </Link>
+              </div>
             </div>
           </div>
 
@@ -517,10 +577,35 @@ export default function DashboardPage() {
 
             {/* Calendar - Compact Sidebar */}
             <div className="bg-card rounded-xl border border-primary/10 shadow-sm hover:shadow-md transition-shadow duration-300">
-              <div className="p-4 border-b border-primary/10">
-                <h3 className="text-sm sm:text-base font-semibold text-foreground">
-                  {new Date().toLocaleDateString('id-ID', { month: 'short', year: 'numeric' })}
-                </h3>
+              <div className="p-3 border-b border-primary/10">
+                <div className="flex items-center justify-between gap-1">
+                  <button
+                    onClick={goToPrevMonth}
+                    className="p-1 rounded-md hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label="Previous month"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <h3 className="text-sm sm:text-base font-semibold text-foreground text-center flex-1">
+                    {new Date(calendarMonth.year, calendarMonth.month).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}
+                  </h3>
+                  <button
+                    onClick={goToNextMonth}
+                    className="p-1 rounded-md hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label="Next month"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+                {!isCurrentMonth && (
+                  <button
+                    onClick={goToToday}
+                    className="mt-1.5 w-full text-[10px] text-teal-600 hover:text-teal-700 font-medium flex items-center justify-center gap-1 py-1 rounded-md hover:bg-teal-500/10 transition-colors"
+                  >
+                    <CalendarDays className="w-3 h-3" />
+                    Hari Ini
+                  </button>
+                )}
               </div>
               <div className="p-2">
                 <div className="grid grid-cols-7 gap-0.5">
@@ -530,14 +615,13 @@ export default function DashboardPage() {
                     </div>
                   ))}
                   {Array.from({ length: 35 }).map((_, index) => {
-                    const today = new Date();
-                    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+                    const firstDay = new Date(calendarMonth.year, calendarMonth.month, 1);
                     const startingDay = (firstDay.getDay() + 6) % 7;
                     const dayOfMonth = index - startingDay + 1;
-                    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-                    const isCurrentDay = dayOfMonth === today.getDate();
+                    const daysInMonth = new Date(calendarMonth.year, calendarMonth.month + 1, 0).getDate();
+                    const isCurrentDay = isCurrentMonth && dayOfMonth === now.getDate();
                     const isValidDay = dayOfMonth >= 1 && dayOfMonth <= daysInMonth;
-                    const dayLeaveEntries = calendarLeaveData[`${dayOfMonth}`] || [];
+                    const dayLeaveEntries = calendarMonthData[`${dayOfMonth}`] || [];
                     const hasLeave = isValidDay && dayLeaveEntries.length > 0;
                     
                     return (
@@ -596,16 +680,16 @@ export default function DashboardPage() {
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
                 <DialogTitle>
-                  Cuti pada {selectedDate !== null ? `${new Date().toLocaleDateString('id-ID', { month: 'long' })} ${selectedDate}` : ''}
+                  Cuti pada {selectedDate !== null ? `${new Date(calendarMonth.year, calendarMonth.month).toLocaleDateString('id-ID', { month: 'long' })} ${selectedDate}` : ''}
                 </DialogTitle>
                 <DialogDescription>
-                  {selectedDate !== null && calendarLeaveData[`${selectedDate}`]
-                    ? `${calendarLeaveData[`${selectedDate}`].length} karyawan sedang cuti`
+                  {selectedDate !== null && calendarMonthData[`${selectedDate}`]
+                    ? `${calendarMonthData[`${selectedDate}`].length} karyawan sedang cuti`
                     : 'Tidak ada karyawan sedang cuti'}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-3 mt-2">
-                {selectedDate !== null && calendarLeaveData[`${selectedDate}`]?.map((entry, index) => (
+                {selectedDate !== null && calendarMonthData[`${selectedDate}`]?.map((entry, index) => (
                   <div
                     key={index}
                     className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-teal-500/5 to-purple-500/5 border border-primary/10"
@@ -635,59 +719,57 @@ export default function DashboardPage() {
             </DialogContent>
           </Dialog>
 
-          {/* Employee Table */}
+          {/* Upcoming Leave Widget */}
           <div className="bg-card rounded-xl border border-primary/10 overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300">
             <div className="p-4 sm:p-6 border-b border-primary/10">
-              <h3 className="text-base sm:text-lg font-semibold text-foreground">
-                Status Cuti Karyawan
-              </h3>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base sm:text-lg font-semibold text-foreground">
+                    Cuti Mendatang
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">14 hari ke depan</p>
+                </div>
+                <div className="flex items-center gap-1 text-xs text-teal-600 font-medium">
+                  <CalendarDays className="w-4 h-4" />
+                  {upcomingLeave.length} karyawan
+                </div>
+              </div>
             </div>
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="px-4 sm:px-6">Nama</TableHead>
-                  <TableHead className="px-4 sm:px-6 hidden sm:table-cell">Divisi</TableHead>
-                  <TableHead className="px-4 sm:px-6">Kuota</TableHead>
-                  <TableHead className="px-4 sm:px-6">Terpakai</TableHead>
-                  <TableHead className="px-4 sm:px-6">Tersisa</TableHead>
-                  <TableHead className="px-4 sm:px-6">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {employeeQuotas.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6}>
-                      <EmptyState icon={UserCheck} title="Data karyawan belum tersedia" />
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  employeeQuotas.slice(0, 10).map((emp, index: number) => (
-                    <TableRow key={index}>
-                      <TableCell className="px-4 sm:px-6 py-4 text-sm font-medium text-foreground">
-                        {emp.nama}
-                      </TableCell>
-                      <TableCell className="px-4 sm:px-6 py-4 text-sm text-muted-foreground hidden sm:table-cell">
-                        {emp.departemen}
-                      </TableCell>
-                      <TableCell className="px-4 sm:px-6 py-4 text-sm text-muted-foreground">
-                        {emp.quota} hari
-                      </TableCell>
-                      <TableCell className="px-4 sm:px-6 py-4 text-sm text-muted-foreground">
-                        {emp.usedDays} hari
-                      </TableCell>
-                      <TableCell className="px-4 sm:px-6 py-4 text-sm text-muted-foreground">
-                        {emp.remaining} hari
-                      </TableCell>
-                      <TableCell className="px-4 sm:px-6 py-4">
-                        <StatusBadge variant={emp.remaining > 0 ? 'available' : 'exhausted'}>
-                          {emp.remaining > 0 ? 'Tersedia' : 'Habis'}
-                        </StatusBadge>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+            <div className="p-4 sm:p-6">
+              {upcomingLeave.length === 0 ? (
+                <EmptyState icon={CalendarDays} title="Tidak ada cuti mendatang" description="Tidak ada karyawan yang akan cuti dalam 14 hari ke depan" />
+              ) : (
+                <div className="space-y-3">
+                  {upcomingLeave.map((employee, index) => (
+                    <div key={index} className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-teal-500/5 to-purple-500/5 border border-primary/10 hover:shadow-md transition-shadow duration-200">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-500 to-purple-500 flex items-center justify-center shrink-0 shadow-md shadow-teal-500/20">
+                        <span className="text-sm font-bold text-white">
+                          {employee.nama.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{employee.nama}</p>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Building2 className="w-3 h-3" />
+                          {employee.departemen}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-xs font-medium text-teal-600">
+                          {employee.tanggalCutiPertama}
+                        </p>
+                        {employee.tanggalCutiKedua && employee.tanggalCutiKedua !== employee.tanggalCutiPertama && (
+                          <p className="text-[10px] text-muted-foreground">
+                            s/d {employee.tanggalCutiKedua}
+                          </p>
+                        )}
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </>
       )}

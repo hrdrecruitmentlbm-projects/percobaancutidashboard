@@ -1,11 +1,31 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getEmployees, getLeaveRequests } from '@/lib/google-sheets';
 import { calculateLeaveQuota, calculateDaysUsed } from '@/lib/leave-calculator';
 import { parseIndonesianDate } from '@/lib/indonesian-date';
 import { namesMatch, cleanField } from '@/lib/name-cleaner';
 
-export async function GET() {
+function getDateRangeStart(range: string): Date | null {
+  const now = new Date();
+  switch (range) {
+    case 'month':
+      return new Date(now.getFullYear(), now.getMonth(), 1);
+    case '3months':
+      return new Date(now.getFullYear(), now.getMonth() - 2, 1);
+    case '6months':
+      return new Date(now.getFullYear(), now.getMonth() - 5, 1);
+    case 'year':
+      return new Date(now.getFullYear(), 0, 1);
+    case 'all':
+    default:
+      return null;
+  }
+}
+
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const range = searchParams.get('range') || 'year';
+    
     const employees = await getEmployees();
     const leaveRequests = await getLeaveRequests();
     
@@ -28,7 +48,17 @@ export async function GET() {
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
     
-    // Filter requests for current month
+    // Filter requests by date range
+    const rangeStart = getDateRangeStart(range);
+    const filteredRequests = rangeStart
+      ? leaveRequests.filter((request) => {
+          const pertama = parseIndonesianDate(request.tanggalCutiPertama);
+          if (isNaN(pertama.getTime())) return false;
+          return pertama.getTime() >= rangeStart.getTime();
+        })
+      : leaveRequests;
+    
+    // Filter requests for current month (always needed for stats card)
     const currentMonthRequests = leaveRequests.filter((request) => {
       const date = parseIndonesianDate(request.tanggalCutiPertama);
       return !isNaN(date.getTime()) && date.getMonth() === currentMonth && date.getFullYear() === currentYear;
@@ -41,15 +71,14 @@ export async function GET() {
       
       const kedua = request.tanggalCutiKedua ? parseIndonesianDate(request.tanggalCutiKedua) : null;
       
-      // G and H are two separate leave days, NOT a date range
       if (kedua && !isNaN(kedua.getTime())) {
         if (pertama.getTime() === kedua.getTime()) {
-          return total + 1; // Same date = 1 day
+          return total + 1;
         } else {
-          return total + 2; // Different dates = 2 days
+          return total + 2;
         }
       }
-      return total + 1; // Only first date = 1 day
+      return total + 1;
     }, 0);
     
     // Calculate total remaining quota
@@ -65,7 +94,7 @@ export async function GET() {
       return { ...employee, quota, usedDays, remaining };
     });
     
-    // Calculate division stats
+    // Calculate division stats (based on filtered requests)
     const divisionStats = employees.reduce((acc, employee) => {
       const division = employee.departemen;
       if (!acc[division]) {
@@ -85,15 +114,11 @@ export async function GET() {
       return acc;
     }, {} as Record<string, { division: string; totalEmployees: number; totalLeaveTaken: number; totalRemaining: number }>);
     
-    // Calculate monthly data for chart
-    const monthlyData = leaveRequests.reduce((acc, request) => {
+    // Calculate monthly data for chart (based on filtered requests)
+    const monthlyData = filteredRequests.reduce((acc, request) => {
       const pertama = parseIndonesianDate(request.tanggalCutiPertama);
       if (isNaN(pertama.getTime())) return acc;
       
-      // Year filter: only count current year
-      if (pertama.getFullYear() !== currentYear) return acc;
-      
-      // Skip melahirkan
       const jenisCuti = cleanField(request.jenisCuti).toLowerCase();
       if (jenisCuti === 'melahirkan') return acc;
       
@@ -106,15 +131,14 @@ export async function GET() {
       
       const kedua = request.tanggalCutiKedua ? parseIndonesianDate(request.tanggalCutiKedua) : null;
       
-      // G and H are two separate leave days, NOT a date range
       if (kedua && !isNaN(kedua.getTime())) {
         if (pertama.getTime() === kedua.getTime()) {
-          acc[month].days += 1; // Same date = 1 day
+          acc[month].days += 1;
         } else {
-          acc[month].days += 2; // Different dates = 2 days
+          acc[month].days += 2;
         }
       } else {
-        acc[month].days += 1; // Only first date = 1 day
+        acc[month].days += 1;
       }
       
       return acc;
@@ -129,11 +153,9 @@ export async function GET() {
       
       if (isNaN(pertama.getTime())) return false;
       
-      // Check if first date is today
       const pertamaDay = new Date(pertama.getFullYear(), pertama.getMonth(), pertama.getDate());
       if (pertamaDay.getTime() === today.getTime()) return true;
       
-      // Check if second date is today
       if (kedua && !isNaN(kedua.getTime())) {
         const keduaDay = new Date(kedua.getFullYear(), kedua.getMonth(), kedua.getDate());
         if (keduaDay.getTime() === today.getTime()) return true;
@@ -161,7 +183,7 @@ export async function GET() {
         acaraKeperluan: request.acaraKeperluan,
       }));
     
-    // Top 5 leave users
+    // Top 5 leave users (based on filtered requests)
     const topLeaveUsers = employeeQuotas
       .sort((a, b) => b.usedDays - a.usedDays)
       .slice(0, 5)
@@ -171,17 +193,15 @@ export async function GET() {
         usedDays: emp.usedDays,
       }));
     
-    // Leave trend - monthly data with employee count
+    // Leave trend - monthly data with employee count (based on filtered requests)
     const leaveTrend = Object.values(monthlyData).map((data) => {
-      const monthRequests = leaveRequests.filter((request) => {
+      const monthRequests = filteredRequests.filter((request) => {
         const pertama = parseIndonesianDate(request.tanggalCutiPertama);
         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         return !isNaN(pertama.getTime()) && 
-               pertama.getFullYear() === currentYear && 
                monthNames[pertama.getMonth()] === data.month;
       });
       
-      // Count unique employees who took leave this month
       const uniqueEmployees = new Set(monthRequests.map((r) => r.nama)).size;
       
       return {
@@ -191,19 +211,16 @@ export async function GET() {
       };
     });
     
-    // Calendar leave data - map day numbers to employees for current month
+    // Calendar leave data - map yearMonthKey -> day -> employees (all months)
     const calendarLeaveData = leaveRequests
       .filter((request) => {
         const pertama = parseIndonesianDate(request.tanggalCutiPertama);
         if (isNaN(pertama.getTime())) return false;
         
         const kedua = request.tanggalCutiKedua ? parseIndonesianDate(request.tanggalCutiKedua) : null;
+        if (!kedua || isNaN(kedua.getTime())) return true;
         
-        const inCurrentMonth = 
-          (pertama.getMonth() === currentMonth && pertama.getFullYear() === currentYear) ||
-          (kedua && !isNaN(kedua.getTime()) && kedua.getMonth() === currentMonth && kedua.getFullYear() === currentYear);
-        
-        return inCurrentMonth;
+        return true;
       })
       .reduce((acc, request) => {
         const pertama = parseIndonesianDate(request.tanggalCutiPertama);
@@ -217,22 +234,48 @@ export async function GET() {
           tanggalCutiKedua: request.tanggalCutiKedua,
         };
         
-        // Add to first date
-        const pKey = `${pertama.getDate()}`;
-        if (!acc[pKey]) acc[pKey] = [];
-        acc[pKey].push(entry);
+        const pMonthKey = `${pertama.getFullYear()}-${String(pertama.getMonth() + 1).padStart(2, '0')}`;
+        const pDay = `${pertama.getDate()}`;
+        if (!acc[pMonthKey]) acc[pMonthKey] = {};
+        if (!acc[pMonthKey][pDay]) acc[pMonthKey][pDay] = [];
+        acc[pMonthKey][pDay].push(entry);
         
-        // Add to second date if different
-        if (kedua && !isNaN(kedua.getTime())) {
-          const kKey = `${kedua.getDate()}`;
-          if (pKey !== kKey) {
-            if (!acc[kKey]) acc[kKey] = [];
-            acc[kKey].push(entry);
-          }
+        if (kedua && !isNaN(kedua.getTime()) && kedua.getTime() !== pertama.getTime()) {
+          const kMonthKey = `${kedua.getFullYear()}-${String(kedua.getMonth() + 1).padStart(2, '0')}`;
+          const kDay = `${kedua.getDate()}`;
+          if (!acc[kMonthKey]) acc[kMonthKey] = {};
+          if (!acc[kMonthKey][kDay]) acc[kMonthKey][kDay] = [];
+          acc[kMonthKey][kDay].push(entry);
         }
         
         return acc;
-      }, {} as Record<string, { nama: string; departemen: string; jenisCuti: string; tanggalCutiPertama: string; tanggalCutiKedua: string }[]>);
+      }, {} as Record<string, Record<string, { nama: string; departemen: string; jenisCuti: string; tanggalCutiPertama: string; tanggalCutiKedua: string }[]>>);
+    
+    // Upcoming leave - next 14 days
+    const upcomingEnd = new Date(today);
+    upcomingEnd.setDate(upcomingEnd.getDate() + 14);
+    
+    const upcomingLeave = leaveRequests
+      .filter((request) => {
+        const pertama = parseIndonesianDate(request.tanggalCutiPertama);
+        if (isNaN(pertama.getTime())) return false;
+        
+        const pertamaDay = new Date(pertama.getFullYear(), pertama.getMonth(), pertama.getDate());
+        
+        // First date must be after today and within 14 days
+        return pertamaDay.getTime() > today.getTime() && pertamaDay.getTime() <= upcomingEnd.getTime();
+      })
+      .sort((a, b) => {
+        const dateA = parseIndonesianDate(a.tanggalCutiPertama);
+        const dateB = parseIndonesianDate(b.tanggalCutiPertama);
+        return dateA.getTime() - dateB.getTime();
+      })
+      .map((request) => ({
+        nama: request.nama,
+        departemen: request.departemen,
+        tanggalCutiPertama: request.tanggalCutiPertama,
+        tanggalCutiKedua: request.tanggalCutiKedua,
+      }));
     
     return NextResponse.json({
       stats: {
@@ -254,6 +297,7 @@ export async function GET() {
       topLeaveUsers,
       leaveTrend,
       calendarLeaveData,
+      upcomingLeave,
     });
   } catch (error) {
     console.error('Error fetching stats:', error);

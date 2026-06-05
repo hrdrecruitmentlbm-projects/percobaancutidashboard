@@ -101,3 +101,12 @@ export interface CalendarLeaveEntry {
   tanggalCutiPertama: string;
   tanggalCutiKedua: string;
 }
+
+export interface UpcomingLeave {
+  nama: string;
+  departemen: string;
+  tanggalCutiPertama: string;
+  tanggalCutiKedua: string;
+}
+
+export type DateRange = 'month' | '3months' | '6months' | 'year' | 'all';
