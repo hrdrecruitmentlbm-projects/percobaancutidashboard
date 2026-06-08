@@ -34,7 +34,7 @@ export default function LoginPage() {
       }
       
       setUserToStorage(data);
-      const dest = data.role === 'employee' ? '/my-leave' : '/dashboard';
+      const dest = data.role === 'admin' ? '/dashboard' : '/my-leave';
       router.push(dest);
     } catch {
       setError('Terjadi kesalahan. Silakan coba lagi.');
