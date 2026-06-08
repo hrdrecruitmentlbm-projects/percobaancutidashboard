@@ -49,7 +49,7 @@ export type UserRole = 'admin' | 'leader' | 'employee';
 export interface UserSession {
   email: string;
   role: UserRole;
-  division?: string;
+  divisions?: string[];
 }
 
 export interface DashboardStats {

@@ -4,27 +4,35 @@ import { getLeaveQuotaForDivision } from '@/lib/leave-calculator';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const division = searchParams.get('division');
+  // Support both single `division` and multiple `divisions` params
+  const singleDivision = searchParams.get('division');
+  const multiDivisions = searchParams.getAll('divisions');
+  const requestedDivisions = multiDivisions.length > 0
+    ? multiDivisions
+    : singleDivision
+      ? [singleDivision]
+      : [];
   
   try {
     const employees = await getEmployees();
     const leaveRequests = await getLeaveRequests();
     
-    // If specific division requested (leader view)
-    if (division) {
-      const divisionData = getLeaveQuotaForDivision(
-        division,
-        employees.map((emp) => ({
-          nama: emp.nama,
-          departemen: emp.departemen,
-          tanggalMasuk: emp.tanggalMasuk,
-        })),
-        leaveRequests
-      );
+    // If specific division(s) requested (leader view)
+    if (requestedDivisions.length > 0) {
+      const divisions = requestedDivisions.map((div) => ({
+        name: div,
+        employees: getLeaveQuotaForDivision(
+          div,
+          employees.map((emp) => ({
+            nama: emp.nama,
+            departemen: emp.departemen,
+            tanggalMasuk: emp.tanggalMasuk,
+          })),
+          leaveRequests
+        ),
+      }));
       
-      return NextResponse.json({
-        divisions: [{ name: division, employees: divisionData }],
-      });
+      return NextResponse.json({ divisions });
     }
     
     // Admin view: group all employees by division

@@ -118,12 +118,12 @@ export async function getLeaders(): Promise<Leader[]> {
   }
 }
 
-export async function getUserRole(email: string): Promise<{ role: 'admin' | 'leader' | 'employee'; division?: string }> {
+export async function getUserRole(email: string): Promise<{ role: 'admin' | 'leader' | 'employee'; divisions?: string[] }> {
   const leaders = await getLeaders();
   
-  const leaderMatch = leaders.find((leader) => leader.email.toLowerCase() === email.toLowerCase());
-  if (leaderMatch) {
-    return { role: 'leader', division: leaderMatch.division };
+  const leaderMatches = leaders.filter((leader) => leader.email.toLowerCase() === email.toLowerCase());
+  if (leaderMatches.length > 0) {
+    return { role: 'leader', divisions: leaderMatches.map((l) => l.division) };
   }
   
   return { role: 'employee' };

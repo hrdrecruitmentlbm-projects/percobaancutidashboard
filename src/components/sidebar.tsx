@@ -11,11 +11,11 @@ import { cn } from '@/lib/utils';
 
 interface SidebarProps {
   userRole: UserRole;
-  userDivision?: string;
+  userDivisions?: string[];
   userEmail?: string;
 }
 
-export default function Sidebar({ userRole, userDivision, userEmail }: SidebarProps) {
+export default function Sidebar({ userRole, userDivisions, userEmail }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
@@ -99,7 +99,7 @@ export default function Sidebar({ userRole, userDivision, userEmail }: SidebarPr
           </div>
           <div className="min-w-0">
             <p className="text-sm font-medium text-white truncate">{userEmail || userRole}</p>
-            <p className="text-xs text-white/50 capitalize">{userRole}{userDivision ? ` · ${userDivision}` : ''}</p>
+            <p className="text-xs text-white/50 capitalize">{userRole}{userDivisions && userDivisions.length > 0 ? ` · ${userDivisions.join(', ')}` : ''}</p>
           </div>
         </div>
         <button

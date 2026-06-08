@@ -43,12 +43,13 @@ export async function POST(request: NextRequest) {
     }
     
     // 3. Check if user is a leader
-    const leaderMatch = leaders.find((leader) => leader.email.toLowerCase() === email.toLowerCase());
-    if (leaderMatch) {
+    const leaderMatches = leaders.filter((leader) => leader.email.toLowerCase() === email.toLowerCase());
+    if (leaderMatches.length > 0) {
+      const divisions = leaderMatches.map((l) => l.division);
       return NextResponse.json({
         email,
         role: 'leader',
-        division: leaderMatch.division,
+        divisions,
       });
     }
     

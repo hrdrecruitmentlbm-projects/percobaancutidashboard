@@ -23,7 +23,7 @@ export default function DivisionPage() {
   const [error, setError] = useState<string | null>(null);
   const [expandedDivisions, setExpandedDivisions] = useState<Set<string>>(new Set());
   const [userRole, setUserRole] = useState<string>('');
-  const [userDivision, setUserDivision] = useState<string>('');
+  const [userDivisions, setUserDivisions] = useState<string[]>([]);
 
   const fetchDivisionData = async (url: string) => {
     try {
@@ -52,10 +52,11 @@ export default function DivisionPage() {
     const userData = getUserFromStorage();
     if (userData) {
       setUserRole(userData.role);
-      setUserDivision(userData.division || '');
+      setUserDivisions(userData.divisions || []);
       
-      const url = userData.division
-        ? `/api/division?division=${encodeURIComponent(userData.division)}`
+      const divisions = userData.divisions || [];
+      const url = divisions.length > 0
+        ? `/api/division?${divisions.map((d) => `divisions=${encodeURIComponent(d)}`).join('&')}`
         : '/api/division';
       fetchDivisionData(url);
     }
@@ -78,7 +79,7 @@ export default function DivisionPage() {
   return (
     <DashboardLayout
       title="Laporan Divisi"
-      subtitle={isAdmin ? 'Ringkasan semua divisi' : `${userDivision} - Ringkasan cuti divisi Anda`}
+      subtitle={isAdmin ? 'Ringkasan semua divisi' : `${userDivisions.join(', ')} - Ringkasan cuti divisi Anda`}
     >
       {isLoading ? (
         <PageLoading />

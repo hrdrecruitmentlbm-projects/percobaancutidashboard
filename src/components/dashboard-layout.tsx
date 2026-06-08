@@ -58,7 +58,7 @@ export default function DashboardLayout({
     <div className="flex min-h-screen bg-background">
       <Sidebar
         userRole={user.role}
-        userDivision={user.division}
+        userDivisions={user.divisions}
         userEmail={user.email}
       />
 
