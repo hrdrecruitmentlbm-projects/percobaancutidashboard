@@ -14,7 +14,8 @@ export async function GET() {
         employee.nama,
         employee.tanggalMasuk,
         leaveRequests,
-        now
+        now,
+        employee.masaKerja
       );
       
       return {

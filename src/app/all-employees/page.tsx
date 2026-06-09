@@ -172,6 +172,8 @@ export default function AllEmployeesPage() {
                   <TableRow className="bg-muted/50">
                     <TableHead className="px-4 sm:px-6">Nama</TableHead>
                     <TableHead className="px-4 sm:px-6 hidden sm:table-cell">Divisi</TableHead>
+                    <TableHead className="px-4 sm:px-6 hidden lg:table-cell">Tanggal Masuk</TableHead>
+                    <TableHead className="px-4 sm:px-6 hidden lg:table-cell">Masa Kerja</TableHead>
                     <TableHead className="px-4 sm:px-6">Kuota</TableHead>
                     <TableHead className="px-4 sm:px-6">Terpakai</TableHead>
                     <TableHead className="px-4 sm:px-6">Tersisa</TableHead>
@@ -181,7 +183,7 @@ export default function AllEmployeesPage() {
                 <TableBody>
                   {paginatedEmployees.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6}>
+                      <TableCell colSpan={8}>
                         <EmptyState icon={UserCheck} title="Tidak ada karyawan ditemukan" />
                       </TableCell>
                     </TableRow>
@@ -193,6 +195,12 @@ export default function AllEmployeesPage() {
                         </TableCell>
                         <TableCell className="px-4 sm:px-6 whitespace-nowrap text-muted-foreground hidden sm:table-cell">
                           {employee.division}
+                        </TableCell>
+                        <TableCell className="px-4 sm:px-6 whitespace-nowrap text-muted-foreground hidden lg:table-cell">
+                          {employee.formattedJoinDate}
+                        </TableCell>
+                        <TableCell className="px-4 sm:px-6 whitespace-nowrap text-muted-foreground hidden lg:table-cell">
+                          {employee.masaKerja}
                         </TableCell>
                         <TableCell className="px-4 sm:px-6 whitespace-nowrap text-muted-foreground">
                           {employee.totalQuota} hari

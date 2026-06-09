@@ -1,5 +1,5 @@
 import { LeaveRequest, LeaveQuota, MonthlyLeave } from '@/types';
-import { parseIndonesianDate } from './indonesian-date';
+import { parseIndonesianDate, formatToIndonesianDate } from './indonesian-date';
 import { namesMatch, cleanField } from './name-cleaner';
 
 export function calculateLeaveQuota(
@@ -114,7 +114,8 @@ export function getLeaveQuotaForEmployee(
   employeeName: string,
   joinDate: string,
   allLeaveRequests: LeaveRequest[],
-  currentDate: Date = new Date()
+  currentDate: Date = new Date(),
+  masaKerja: string = ''
 ): LeaveQuota {
   const employeeRequests = allLeaveRequests.filter(
     (request) => namesMatch(request.nama, employeeName)
@@ -123,6 +124,7 @@ export function getLeaveQuotaForEmployee(
   const { quota, isFebruaryJoiner, isOverOneYear } = calculateLeaveQuota(joinDate, currentDate);
   const usedDays = calculateDaysUsed(employeeRequests, currentDate.getFullYear());
   const remainingDays = Math.max(0, quota - usedDays);
+  const parsedJoinDate = parseIndonesianDate(joinDate);
   
   return {
     employeeName,
@@ -130,7 +132,9 @@ export function getLeaveQuotaForEmployee(
     totalQuota: quota,
     usedDays,
     remainingDays,
-    joinDate: parseIndonesianDate(joinDate),
+    joinDate: parsedJoinDate,
+    formattedJoinDate: formatToIndonesianDate(parsedJoinDate),
+    masaKerja,
     isFebruaryJoiner,
     isOverOneYear,
   };
@@ -138,7 +142,7 @@ export function getLeaveQuotaForEmployee(
 
 export function getLeaveQuotaForDivision(
   division: string,
-  employees: { nama: string; departemen: string; tanggalMasuk: string }[],
+  employees: { nama: string; departemen: string; tanggalMasuk: string; masaKerja: string }[],
   allLeaveRequests: LeaveRequest[]
 ): LeaveQuota[] {
   const divisionEmployees = employees.filter(
@@ -146,7 +150,7 @@ export function getLeaveQuotaForDivision(
   );
   
   return divisionEmployees.map((employee) => {
-    const quota = getLeaveQuotaForEmployee(employee.nama, employee.tanggalMasuk, allLeaveRequests);
+    const quota = getLeaveQuotaForEmployee(employee.nama, employee.tanggalMasuk, allLeaveRequests, new Date(), employee.masaKerja);
     return { ...quota, division };
   });
 }

@@ -33,6 +33,8 @@ export interface LeaveQuota {
   usedDays: number;
   remainingDays: number;
   joinDate: Date;
+  formattedJoinDate: string;
+  masaKerja: string;
   isFebruaryJoiner: boolean;
   isOverOneYear: boolean;
 }

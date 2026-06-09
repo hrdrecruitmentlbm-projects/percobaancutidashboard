@@ -166,6 +166,8 @@ export default function DivisionPage() {
                             <TableHeader>
                               <TableRow className="bg-muted/50">
                                 <TableHead className="px-4 sm:px-6">Nama</TableHead>
+                                <TableHead className="px-4 sm:px-6 hidden sm:table-cell">Tanggal Masuk</TableHead>
+                                <TableHead className="px-4 sm:px-6 hidden sm:table-cell">Masa Kerja</TableHead>
                                 <TableHead className="px-4 sm:px-6">Kuota</TableHead>
                                 <TableHead className="px-4 sm:px-6">Terpakai</TableHead>
                                 <TableHead className="px-4 sm:px-6">Tersisa</TableHead>
@@ -177,6 +179,12 @@ export default function DivisionPage() {
                                 <TableRow key={index} className="hover:bg-muted/50 transition-colors">
                                   <TableCell className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
                                     {employee.employeeName}
+                                  </TableCell>
+                                  <TableCell className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-muted-foreground hidden sm:table-cell">
+                                    {employee.formattedJoinDate}
+                                  </TableCell>
+                                  <TableCell className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-muted-foreground hidden sm:table-cell">
+                                    {employee.masaKerja}
                                   </TableCell>
                                   <TableCell className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                                     {employee.totalQuota} hari

@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
             nama: emp.nama,
             departemen: emp.departemen,
             tanggalMasuk: emp.tanggalMasuk,
+            masaKerja: emp.masaKerja,
           })),
           leaveRequests
         ),
@@ -54,6 +55,7 @@ export async function GET(request: NextRequest) {
           nama: emp.nama,
           departemen: emp.departemen,
           tanggalMasuk: emp.tanggalMasuk,
+          masaKerja: emp.masaKerja,
         })),
         leaveRequests
       ),
